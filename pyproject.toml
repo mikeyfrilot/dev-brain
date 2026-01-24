@@ -50,9 +50,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mikeyfrilot/dev-brain"
-Repository = "https://github.com/mikeyfrilot/dev-brain"
-Issues = "https://github.com/mikeyfrilot/dev-brain/issues"
+Homepage = "https://github.com/mcp-tool-shop/dev-brain"
+Repository = "https://github.com/mcp-tool-shop/dev-brain.git"
+Issues = "https://github.com/mcp-tool-shop/dev-brain/issues"
+Changelog = "https://github.com/mcp-tool-shop/dev-brain/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dev-brain = "dev_brain.server:main"

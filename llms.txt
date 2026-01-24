@@ -1,0 +1,100 @@
+# Dev Brain
+
+> AI-Powered Code Intelligence via MCP
+
+## Overview
+
+Dev Brain is an MCP server that gives LLMs the ability to analyze test coverage, generate pytest tests from AST, detect security vulnerabilities, and suggest refactoring improvements. Works with Claude, Cursor, Windsurf, and any MCP-compatible client.
+
+## Quick Start
+
+```bash
+pip install dev-brain
+```
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "dev-brain": {
+      "command": "dev-brain"
+    }
+  }
+}
+```
+
+## MCP Tools
+
+### Analysis Tools
+
+#### coverage_analyze(file_path)
+Compare code patterns against test coverage, identify untested paths.
+- Returns: Coverage gaps, untested functions, missing edge cases
+
+#### behavior_missing(file_path)
+Find user behaviors and edge cases not handled in code.
+- Returns: Missing error handlers, unhandled states, edge cases
+
+#### refactor_suggest(file_path)
+Analyze complexity, duplication, and naming issues.
+- Returns: Complexity hotspots, duplicate code, naming improvements
+
+#### ux_insights(file_path)
+Extract UX patterns from user-facing code.
+- Returns: Dropoff points, error states, friction areas
+
+### Generation Tools
+
+#### tests_generate(file_path)
+Create test suggestions based on coverage gaps.
+- Returns: Suggested test cases with descriptions
+
+#### smart_tests_generate(file_path)
+AST-based pytest generation with proper fixtures and mocks.
+- Returns: Complete, compilable pytest file
+
+#### docs_generate(file_path)
+Generate documentation templates for undocumented code.
+- Returns: Docstring templates, README sections
+
+### Security Tools
+
+#### security_audit(file_path)
+OWASP-style vulnerability scanning with CWE mapping.
+- Detects: SQL injection, command injection, XSS, hardcoded secrets, path traversal, SSRF
+- Returns: Vulnerabilities with severity, CWE IDs, and remediation
+
+### Utility Tools
+
+#### code_health_score(file_path)
+Overall code quality scoring across 11 categories.
+- Returns: Score (0-100), breakdown by category, improvement suggestions
+
+## Supported Languages
+
+- Python (full AST analysis)
+- JavaScript/TypeScript
+- PowerShell
+- CSS/HTML
+
+## Security Detection Patterns
+
+49 detection patterns including:
+- SQL Injection (CWE-89)
+- Command Injection (CWE-78)
+- XSS (CWE-79)
+- Hardcoded Secrets (CWE-798)
+- Path Traversal (CWE-22)
+- SSRF (CWE-918)
+
+## Links
+
+- Repository: https://github.com/mcp-tool-shop/dev-brain
+- PyPI: https://pypi.org/project/dev-brain/
+- Documentation: https://github.com/mcp-tool-shop/dev-brain#readme
+- Issues: https://github.com/mcp-tool-shop/dev-brain/issues
+
+## License
+
+MIT License
