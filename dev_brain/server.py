@@ -563,6 +563,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
                 type="text",
                 text=json.dumps({
                     "success": True,
+                    "file_path": str(resolved_path),
                     "file_name": file_name,
                     "test_code": test_code,
                     "lines": len(test_code.split("\n")),
@@ -575,6 +576,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
                 text=json.dumps({
                     "error": f"Syntax error in source file: {e.msg}",
                     "success": False,
+                    "file_path": str(resolved_path),
                     "file_name": file_name,
                 })
             )]
@@ -586,6 +588,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
                 text=json.dumps({
                     "error": f"Failed to generate tests: {error_type}",
                     "success": False,
+                    "file_path": str(resolved_path),
                     "file_name": file_name,
                 })
             )]
