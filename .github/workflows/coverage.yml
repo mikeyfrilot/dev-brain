@@ -26,11 +26,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-asyncio pytest-cov coverage codecov
       
-      - name: Run coverage script
+      - name: Install workspace packages
         run: |
-          chmod +x run-coverage.ps1
-          python -m pip install -e .
-          python -m coverage run --source=. -m pytest --ignore=tests/generated -q || true
+          for dir in automation/* media/* discovery/* ai/* core/* security/*; do
+            if [ -d "$dir" ] && [ -f "$dir/pyproject.toml" ]; then
+              echo "Installing $dir"
+              cd "$dir"
+              python -m pip install -e . -q || true
+              cd ../..
+            fi
+          done
+      
+      - name: Run coverage on all packages
+        run: |
+          python -m coverage run --source=. -m pytest --ignore=tests/generated --ignore=node_modules -q || true
           python -m coverage report
           python -m coverage xml
       
