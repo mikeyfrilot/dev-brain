@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
-    { name = "AI Workstation" }
+    {name = "mcp-tool-shop", email = "64996768+mcp-tool-shop@users.noreply.github.com"}
 ]
 keywords = [
     "mcp",
@@ -38,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
+
 dependencies = [
     "mcp>=1.0.0",
 ]
@@ -51,7 +52,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/mcp-tool-shop/dev-brain"
-Repository = "https://github.com/mcp-tool-shop/dev-brain.git"
+Repository = "https://github.com/mcp-tool-shop/dev-brain"
 Issues = "https://github.com/mcp-tool-shop/dev-brain/issues"
 Changelog = "https://github.com/mcp-tool-shop/dev-brain/blob/main/CHANGELOG.md"
 
