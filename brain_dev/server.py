@@ -373,7 +373,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
     # Tool Handlers
     # =========================================================================
 
-    async def handle_coverage_analyze(args: dict) -> list[TextContent]:
+    def handle_coverage_analyze(args: dict) -> list[TextContent]:
         """Handle coverage_analyze tool."""
         try:
             patterns = require_list(args, "patterns")
@@ -407,7 +407,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_behavior_missing(args: dict) -> list[TextContent]:
+    def handle_behavior_missing(args: dict) -> list[TextContent]:
         """Handle behavior_missing tool."""
         try:
             patterns = require_list(args, "patterns")
@@ -429,7 +429,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_tests_generate(args: dict) -> list[TextContent]:
+    def handle_tests_generate(args: dict) -> list[TextContent]:
         """Handle tests_generate tool."""
         try:
             gap_data = require_dict(args, "gap")
@@ -464,7 +464,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             text=json.dumps(suggestion.to_dict())
         )]
 
-    async def handle_refactor_suggest(args: dict) -> list[TextContent]:
+    def handle_refactor_suggest(args: dict) -> list[TextContent]:
         """Handle refactor_suggest tool."""
         try:
             symbols = require_list(args, "symbols")
@@ -495,7 +495,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_ux_insights(args: dict) -> list[TextContent]:
+    def handle_ux_insights(args: dict) -> list[TextContent]:
         """Handle ux_insights tool."""
         try:
             patterns = require_list(args, "patterns")
@@ -528,7 +528,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_brain_stats(args: dict) -> list[TextContent]:
+    def handle_brain_stats(args: dict) -> list[TextContent]:
         """Handle brain_stats tool."""
         return [TextContent(
             type="text",
@@ -543,7 +543,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_smart_tests_generate(args: dict) -> list[TextContent]:
+    def handle_smart_tests_generate(args: dict) -> list[TextContent]:
         """Handle smart_tests_generate tool."""
         from pathlib import Path
 
@@ -637,7 +637,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
                 })
             )]
 
-    async def handle_docs_generate(args: dict) -> list[TextContent]:
+    def handle_docs_generate(args: dict) -> list[TextContent]:
         """Handle docs_generate tool."""
         try:
             symbols = require_list(args, "symbols")
@@ -659,7 +659,7 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
             })
         )]
 
-    async def handle_security_audit(args: dict) -> list[TextContent]:
+    def handle_security_audit(args: dict) -> list[TextContent]:
         """Handle security_audit tool."""
         try:
             symbols = require_list(args, "symbols")
@@ -714,11 +714,15 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-        """Dispatch tool calls via the handler registry."""
+        """Dispatch tool calls via the handler registry.
+
+        The outer function must be async (MCP protocol requirement).
+        Individual handlers are sync since they do CPU-bound work only.
+        """
         handler = _tool_handlers.get(name)
         if handler is None:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
-        return await handler(arguments)
+        return handler(arguments)
 
     # =========================================================================
     # Resources
