@@ -418,6 +418,48 @@ class MockDetector:
     # Known async libraries
     ASYNC_LIBS = {"asyncio", "aiohttp", "websockets", "aiofiles"}
 
+    # Standard-library top-level module names that should NOT be mocked.
+    # This avoids false "third-party" classification for common stdlib imports.
+    _STDLIB_MODULES: frozenset[str] = frozenset({
+        # builtins & core
+        "abc", "ast", "asyncio", "atexit",
+        "base64", "bisect", "builtins",
+        "calendar", "cgi", "cmath", "codecs", "collections", "colorsys",
+        "concurrent", "configparser", "contextlib", "contextvars", "copy",
+        "csv", "ctypes",
+        "dataclasses", "datetime", "decimal", "difflib", "dis",
+        "email", "enum", "errno",
+        "faulthandler", "filecmp", "fileinput", "fnmatch", "fractions",
+        "ftplib", "functools",
+        "gc", "getpass", "gettext", "glob", "graphlib", "grp", "gzip",
+        "hashlib", "heapq", "hmac", "html", "http",
+        "imaplib", "importlib", "inspect", "io", "ipaddress",
+        "itertools",
+        "json",
+        "keyword",
+        "linecache", "locale", "logging", "lzma",
+        "mailbox", "math", "mimetypes", "mmap", "multiprocessing",
+        "numbers",
+        "operator", "optparse", "os",
+        "pathlib", "pdb", "pickle", "pipes", "pkgutil", "platform",
+        "plistlib", "pprint", "profile", "pstats",
+        "queue",
+        "random", "re",
+        "readline", "reprlib", "resource",
+        "sched", "secrets", "select", "shelve", "shlex", "shutil",
+        "signal", "site", "smtplib", "socket", "socketserver",
+        "sqlite3", "ssl", "stat", "statistics", "string",
+        "struct", "subprocess", "sys", "sysconfig", "syslog",
+        "tarfile", "tempfile", "textwrap", "threading", "time",
+        "timeit", "tomllib", "trace", "traceback", "tracemalloc",
+        "tty", "turtle", "types", "typing",
+        "unicodedata", "unittest", "urllib", "uuid",
+        "venv",
+        "warnings", "wave", "weakref",
+        "xml", "xmlrpc",
+        "zipfile", "zipimport", "zlib",
+    })
+
     def __init__(self, module_info: ModuleInfo):
         self.module_info = module_info
         self.mock_suggestions: dict[str, str] = {}
@@ -444,22 +486,55 @@ class MockDetector:
 
         return self.mock_suggestions
 
+    @classmethod
+    def _is_stdlib(cls, module: str) -> bool:
+        """Return True if *module* is a Python standard-library package.
+
+        Uses the expanded _STDLIB_MODULES whitelist first (fast O(1) lookup),
+        then falls back to importlib.util.find_spec as a heuristic.
+        """
+        top_level = module.split(".")[0]
+        if top_level in cls._STDLIB_MODULES:
+            return True
+
+        # Fallback: if find_spec succeeds and the origin lives inside the
+        # stdlib directory (but NOT in site-packages), treat it as stdlib.
+        try:
+            import importlib.util
+            spec = importlib.util.find_spec(top_level)
+            if spec and spec.origin:
+                import sysconfig
+                stdlib_dir = sysconfig.get_path("stdlib") or ""
+                # site-packages is under stdlib on some platforms; exclude it
+                purelib = sysconfig.get_path("purelib") or ""
+                platlib = sysconfig.get_path("platlib") or ""
+                origin = spec.origin
+                if (purelib and origin.startswith(purelib)) or \
+                   (platlib and origin.startswith(platlib)):
+                    return False  # third-party in site-packages
+                return origin.startswith(stdlib_dir)
+        except (ModuleNotFoundError, ValueError):
+            pass
+
+        return False
+
     def _should_mock(self, path: str, module: str) -> bool:
         """Check if this import should be mocked."""
-        # Check against known patterns
+        # Check against known patterns that always need mocking
         for pattern in self.MOCK_PATTERNS:
             if pattern in path or pattern in module:
                 return True
 
-        # External packages (not from same module)
-        if not module.startswith(self.module_info.module_name.split(".")[0]):
-            # Check if it's a well-known external package
-            top_level = module.split(".")[0]
-            if top_level in {"os", "sys", "json", "re", "typing", "dataclasses"}:
-                return False  # Standard library utilities, usually no need to mock
-            return True
+        # Same-package imports don't need mocking
+        if module.startswith(self.module_info.module_name.split(".")[0]):
+            return False
 
-        return False
+        # Standard library → no mock needed
+        if self._is_stdlib(module):
+            return False
+
+        # Unknown external package → mock it
+        return True
 
     def _get_mock_type(self, path: str) -> str:
         """Get the appropriate mock type for a path."""

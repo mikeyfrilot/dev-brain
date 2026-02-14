@@ -669,3 +669,34 @@ class TestTempPathGeneration:
 
         assert "import tempfile" in result
         assert "from pathlib import Path" in result
+
+
+class TestStdlibWhitelist:
+    """Regression: stdlib imports must not be flagged as third-party."""
+
+    def test_pathlib_is_stdlib(self):
+        """pathlib must be recognized as stdlib (was missing before)."""
+        from brain_dev.smart_test_generator import MockDetector
+        assert MockDetector._is_stdlib("pathlib") is True
+
+    def test_datetime_is_stdlib(self):
+        """datetime must be recognized as stdlib (was missing before)."""
+        from brain_dev.smart_test_generator import MockDetector
+        assert MockDetector._is_stdlib("datetime") is True
+
+    def test_collections_is_stdlib(self):
+        """collections must be recognized as stdlib."""
+        from brain_dev.smart_test_generator import MockDetector
+        assert MockDetector._is_stdlib("collections.abc") is True
+
+    def test_itertools_is_stdlib(self):
+        """itertools must be recognized as stdlib."""
+        from brain_dev.smart_test_generator import MockDetector
+        assert MockDetector._is_stdlib("itertools") is True
+
+    def test_third_party_still_detected(self):
+        """A truly third-party package must NOT be treated as stdlib."""
+        from brain_dev.smart_test_generator import MockDetector
+        assert MockDetector._is_stdlib("flask") is False
+        assert MockDetector._is_stdlib("django") is False
+        assert MockDetector._is_stdlib("numpy") is False
