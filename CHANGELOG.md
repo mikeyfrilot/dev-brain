@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-02-14
+
 ### Changed
 - **`confidence` field renamed to `signal_strength`** on RefactorSuggestion,
   UXInsight, DocSuggestion, and SecurityIssue.  The old `confidence` key is
@@ -68,5 +70,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD
 - MIT License
 
-[Unreleased]: https://github.com/mcp-tool-shop-org/brain-dev/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/mcp-tool-shop-org/brain-dev/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/mcp-tool-shop-org/brain-dev/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/mcp-tool-shop-org/brain-dev/releases/tag/v1.0.0
