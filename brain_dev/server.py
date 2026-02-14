@@ -41,6 +41,56 @@ from .smart_test_generator import generate_tests_for_file
 
 
 # =========================================================================
+# Input Validation Helpers
+# =========================================================================
+
+class ToolInputError(Exception):
+    """Raised when tool arguments fail validation."""
+
+
+def _require(args: dict, key: str, expected_type: type, type_label: str) -> Any:
+    """Validate that args[key] exists and is the expected type.
+
+    Raises ToolInputError with a user-facing message on failure.
+    """
+    if key not in args:
+        raise ToolInputError(f"Missing required argument: '{key}'")
+    value = args[key]
+    if not isinstance(value, expected_type):
+        actual = type(value).__name__
+        raise ToolInputError(
+            f"Argument '{key}' must be {type_label}, got {actual}"
+        )
+    return value
+
+
+def require_list(args: dict, key: str) -> list:
+    """Require args[key] to be a list."""
+    return _require(args, key, list, "a list")
+
+
+def require_dict(args: dict, key: str) -> dict:
+    """Require args[key] to be a dict/object."""
+    return _require(args, key, dict, "an object")
+
+
+def require_str(args: dict, key: str) -> str:
+    """Require args[key] to be a non-empty string."""
+    value = _require(args, key, str, "a string")
+    if not value:
+        raise ToolInputError(f"Argument '{key}' must be a non-empty string")
+    return value
+
+
+def _validation_error(message: str) -> list[TextContent]:
+    """Return a consistent MCP-friendly validation error."""
+    return [TextContent(
+        type="text",
+        text=json.dumps({"error": message, "success": False}),
+    )]
+
+
+# =========================================================================
 # Tool Schema Definitions (pure data — no runtime deps)
 # =========================================================================
 
@@ -325,9 +375,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_coverage_analyze(args: dict) -> list[TextContent]:
         """Handle coverage_analyze tool."""
+        try:
+            patterns = require_list(args, "patterns")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_coverage_analyzer()
 
-        patterns = args.get("patterns", [])
         test_patterns = args.get("test_patterns", [])
         min_support = args.get("min_support", config.min_gap_support)
 
@@ -355,9 +409,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_behavior_missing(args: dict) -> list[TextContent]:
         """Handle behavior_missing tool."""
+        try:
+            patterns = require_list(args, "patterns")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_behavior_analyzer()
 
-        patterns = args.get("patterns", [])
         code_symbols = args.get("code_symbols", [])
         min_count = args.get("min_count", 5)
 
@@ -373,9 +431,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_tests_generate(args: dict) -> list[TextContent]:
         """Handle tests_generate tool."""
+        try:
+            gap_data = require_dict(args, "gap")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         generator = get_test_generator()
 
-        gap_data = args.get("gap", {})
         framework = args.get("framework", config.default_test_framework)
         style = args.get("style", config.test_style)
 
@@ -404,9 +466,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_refactor_suggest(args: dict) -> list[TextContent]:
         """Handle refactor_suggest tool."""
+        try:
+            symbols = require_list(args, "symbols")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_refactor_analyzer()
 
-        symbols = args.get("symbols", [])
         patterns = args.get("patterns", [])
         analysis_type = args.get("analysis_type", "all")
 
@@ -431,9 +497,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_ux_insights(args: dict) -> list[TextContent]:
         """Handle ux_insights tool."""
+        try:
+            patterns = require_list(args, "patterns")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_ux_analyzer()
 
-        patterns = args.get("patterns", [])
         flow_type = args.get("flow_type", "general")
         metric = args.get("metric", "all")
 
@@ -477,17 +547,10 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
         """Handle smart_tests_generate tool."""
         from pathlib import Path
 
-        file_path = args.get("file_path", "")
-
-        # Validate file_path is provided and is a string
-        if not file_path or not isinstance(file_path, str):
-            return [TextContent(
-                type="text",
-                text=json.dumps({
-                    "error": "file_path is required and must be a string",
-                    "success": False,
-                })
-            )]
+        try:
+            file_path = require_str(args, "file_path")
+        except ToolInputError as e:
+            return _validation_error(str(e))
 
         # Normalize and resolve the path to prevent path traversal display issues
         try:
@@ -576,9 +639,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_docs_generate(args: dict) -> list[TextContent]:
         """Handle docs_generate tool."""
+        try:
+            symbols = require_list(args, "symbols")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_docs_analyzer()
 
-        symbols = args.get("symbols", [])
         doc_style = args.get("doc_style", "google")
 
         suggestions = analyzer.analyze_docs(symbols, doc_style)
@@ -594,9 +661,13 @@ def create_server(config: Optional[DevBrainConfig] = None) -> Server:
 
     async def handle_security_audit(args: dict) -> list[TextContent]:
         """Handle security_audit tool."""
+        try:
+            symbols = require_list(args, "symbols")
+        except ToolInputError as e:
+            return _validation_error(str(e))
+
         analyzer = get_security_analyzer()
 
-        symbols = args.get("symbols", [])
         severity_threshold = args.get("severity_threshold", "low")
 
         issues = analyzer.analyze_security(symbols, severity_threshold)

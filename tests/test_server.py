@@ -743,3 +743,126 @@ class TestIntegration:
         assert "suggestions" in refactoring_data
         assert "insights" in ux_data
         assert "tools_available" in stats_data
+
+
+# =============================================================================
+# Input Validation Tests
+# =============================================================================
+
+def _parse_tool_result(result) -> dict:
+    """Parse a tool result, handling both JSON and plain-text MCP validation errors."""
+    text = result[0].text
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # MCP framework returned a plain-text validation error
+        return {"error": text, "success": False}
+
+
+class TestInputValidation:
+    """Tests for input validation on all tool handlers.
+
+    MCP validates against inputSchema before handlers run, so missing/wrong-type
+    args get caught at the framework level.  Our handlers also have defense-in-depth
+    validation.  Either layer may fire; both must produce a clean error (no crash).
+    """
+
+    @pytest.fixture
+    def server(self):
+        return create_server()
+
+    # -- Missing required arguments --
+
+    @pytest.mark.asyncio
+    async def test_coverage_analyze_missing_patterns(self, server):
+        result = await call_tool(server, "coverage_analyze", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "patterns" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_behavior_missing_missing_patterns(self, server):
+        result = await call_tool(server, "behavior_missing", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "patterns" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_tests_generate_missing_gap(self, server):
+        result = await call_tool(server, "tests_generate", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "gap" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_refactor_suggest_missing_symbols(self, server):
+        result = await call_tool(server, "refactor_suggest", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "symbols" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_ux_insights_missing_patterns(self, server):
+        result = await call_tool(server, "ux_insights", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "patterns" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_smart_tests_generate_missing_file_path(self, server):
+        result = await call_tool(server, "smart_tests_generate", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "file_path" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_docs_generate_missing_symbols(self, server):
+        result = await call_tool(server, "docs_generate", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "symbols" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_security_audit_missing_symbols(self, server):
+        result = await call_tool(server, "security_audit", {})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "symbols" in data["error"].lower()
+
+    # -- Wrong type arguments --
+
+    @pytest.mark.asyncio
+    async def test_coverage_analyze_wrong_type(self, server):
+        result = await call_tool(server, "coverage_analyze", {"patterns": "not-a-list"})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "array" in data["error"].lower() or "list" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_tests_generate_wrong_type(self, server):
+        result = await call_tool(server, "tests_generate", {"gap": "not-a-dict"})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "object" in data["error"].lower() or "dict" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_smart_tests_generate_wrong_type(self, server):
+        result = await call_tool(server, "smart_tests_generate", {"file_path": 12345})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "string" in data["error"].lower() or "type" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_refactor_suggest_wrong_type(self, server):
+        result = await call_tool(server, "refactor_suggest", {"symbols": "not-a-list"})
+        data = _parse_tool_result(result)
+        assert data["success"] is False
+        assert "array" in data["error"].lower() or "list" in data["error"].lower()
+
+    # -- brain_stats accepts empty args (no required fields) --
+
+    @pytest.mark.asyncio
+    async def test_brain_stats_no_args_ok(self, server):
+        result = await call_tool(server, "brain_stats", {})
+        data = json.loads(result[0].text)
+        assert "tools_available" in data
