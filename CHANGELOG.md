@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependabot config (pip + github-actions, weekly).
 - `workflow_dispatch` on CI workflows for manual runs.
 - Path filters on CI to skip docs-only changes.
+- `uv.lock` committed; CI uses `uv sync --frozen` for deterministic installs.
+- Upper bounds on all direct dependencies (`mcp<2`, `pytest<10`, etc.).
+- Lock-drift CI check (`uv lock --check`) on pyproject.toml / uv.lock changes.
+- `__version__` now reads from `importlib.metadata` (single source of truth).
+- Version test asserting `brain_dev.__version__` matches `pyproject.toml`.
+- Compatibility policy documented in README (semver, Python support window).
+- Build & smoke-test CI workflow: builds wheel, installs in clean env, imports.
 
 ## [1.0.0] - 2026-01-24
 
