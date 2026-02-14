@@ -812,7 +812,7 @@ class SecurityAnalyzer:
     SECURITY_PATTERNS = {
         "sql_injection": {
             "patterns": [
-                r'execute\s*\(\s*["\'].*%s',  # String formatting in SQL
+                r'execute\s*\(\s*["\'].*["\']\s*%\s',  # %-formatting on string passed to execute
                 r'execute\s*\(\s*f["\']',     # f-string in SQL
                 r'cursor\.execute\s*\(\s*[^,]+\+',  # String concat in SQL
             ],
@@ -919,6 +919,147 @@ class SecurityAnalyzer:
         },
     }
 
+    # Sink functions where dynamic strings indicate injection risk.
+    # Maps (object_attr_or_name) → (category, severity, cwe, recommendation).
+    _INJECTION_SINKS: dict[str, tuple[str, str, str, str]] = {
+        "execute": (
+            "sql_injection", "critical", "CWE-89",
+            "Use parameterized queries instead of string formatting",
+        ),
+        "executemany": (
+            "sql_injection", "critical", "CWE-89",
+            "Use parameterized queries instead of string formatting",
+        ),
+        "os.system": (
+            "command_injection", "critical", "CWE-78",
+            "Avoid os.system(); use subprocess with a list of args",
+        ),
+        "subprocess.call": (
+            "command_injection", "critical", "CWE-78",
+            "Avoid shell=True and validate/sanitize all inputs",
+        ),
+        "subprocess.run": (
+            "command_injection", "critical", "CWE-78",
+            "Avoid shell=True and validate/sanitize all inputs",
+        ),
+        "subprocess.Popen": (
+            "command_injection", "critical", "CWE-78",
+            "Avoid shell=True and validate/sanitize all inputs",
+        ),
+    }
+
+    @staticmethod
+    def _is_dynamic_string(node: ast.expr) -> Optional[str]:
+        """Return a human-readable reason if *node* builds a string dynamically.
+
+        Detects:
+        * f-strings  (``ast.JoinedStr``)
+        * string concatenation  (``ast.BinOp`` with ``Add``)
+        * ``.format()`` calls on a string literal
+        * ``%`` formatting  (``ast.BinOp`` with ``Mod`` on a string)
+
+        Returns ``None`` when the node is a plain literal or non-string.
+        """
+        if isinstance(node, ast.JoinedStr):
+            return "f-string with interpolated variables"
+        if isinstance(node, ast.BinOp):
+            if isinstance(node.op, ast.Add):
+                return "string concatenation (+)"
+            if isinstance(node.op, ast.Mod) and isinstance(node.left, ast.Constant):
+                return "%-formatting with variables"
+        if isinstance(node, ast.Call):
+            # "...".format(...)
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "format"
+                and isinstance(node.func.value, ast.Constant)
+                and isinstance(node.func.value.value, str)
+            ):
+                return ".format() with variables"
+        return None
+
+    @staticmethod
+    def _call_target_name(node: ast.Call) -> str:
+        """Extract the dotted name of a call target, e.g. ``cursor.execute``."""
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            # one level: obj.method
+            if isinstance(func.value, ast.Name):
+                return f"{func.value.id}.{func.attr}"
+            # deeper chaining — just return the method name
+            return func.attr
+        if isinstance(func, ast.Name):
+            return func.id
+        return ""
+
+    def _ast_detect_injections(
+        self,
+        source: str,
+        file_path: str,
+        base_line: int,
+    ) -> list[SecurityIssue]:
+        """Walk the AST looking for dynamic strings passed to known sinks.
+
+        This catches patterns that regex misses:
+        * ``query = f"SELECT ... {user}"; cursor.execute(query)``
+        * ``cursor.execute("..." + user_input)``
+        * ``cursor.execute("...".format(user_input))``
+        """
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return []  # Fall through to regex fallback
+
+        issues: list[SecurityIssue] = []
+        seen_categories: set[str] = set()
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+
+            target = self._call_target_name(node)
+
+            # Check direct sink calls (e.g. cursor.execute, os.system)
+            # Match either the full dotted name or just the method name
+            sink_info = self._INJECTION_SINKS.get(target)
+            if sink_info is None:
+                # Try matching just the method part (e.g. "execute")
+                method = target.rsplit(".", 1)[-1] if "." in target else target
+                sink_info = self._INJECTION_SINKS.get(method)
+
+            if sink_info is None:
+                continue
+
+            category, severity, cwe, recommendation = sink_info
+
+            if category in seen_categories:
+                continue  # One finding per category
+
+            # Check if any positional argument is a dynamic string
+            for arg in node.args:
+                reason = self._is_dynamic_string(arg)
+                if reason:
+                    issue_id = hashlib.md5(
+                        f"{file_path}:{base_line}:{category}:ast".encode()
+                    ).hexdigest()[:8]
+                    issues.append(SecurityIssue(
+                        issue_id=f"sec_{issue_id}",
+                        severity=severity,
+                        category=category,
+                        location=f"{file_path}:{base_line}",
+                        description=(
+                            f"Potential {category.replace('_', ' ')}: "
+                            f"{target}() called with {reason}"
+                        ),
+                        recommendation=recommendation,
+                        confidence=0.85,
+                        cwe_id=cwe,
+                    ))
+                    seen_categories.add(category)
+                    break
+
+        return issues
+
     def analyze_security(
         self,
         symbols: list[dict],
@@ -926,6 +1067,10 @@ class SecurityAnalyzer:
     ) -> list[SecurityIssue]:
         """
         Analyze code for security vulnerabilities.
+
+        Uses AST-based detection for injection sinks (SQL, command) when the
+        source parses successfully, then falls back to regex heuristics for
+        patterns not covered by AST (secrets, crypto, XSS, etc.).
 
         Args:
             symbols: Code symbols with source_code
@@ -947,7 +1092,18 @@ class SecurityAnalyzer:
             file_path = symbol.get("file_path", "")
             line = symbol.get("line", 0)
 
+            # --- Phase 1: AST-based injection detection ---
+            ast_issues = self._ast_detect_injections(source, file_path, line)
+            ast_categories = {i.category for i in ast_issues}
+            for issue in ast_issues:
+                if severity_order.get(issue.severity, 0) >= threshold:
+                    issues.append(issue)
+
+            # --- Phase 2: Regex fallback for remaining categories ---
             for category, config in self.SECURITY_PATTERNS.items():
+                if category in ast_categories:
+                    continue  # AST already covered this category
+
                 if severity_order.get(config["severity"], 0) < threshold:
                     continue
 

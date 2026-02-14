@@ -464,3 +464,91 @@ class TestSecurityAnalyzer:
         issues = analyzer.analyze_security(symbols)
         assert any(i.category == "log_injection" for i in issues)
         assert any(i.cwe_id == "CWE-117" for i in issues)
+
+    # --- AST-based injection detection ---
+
+    def test_ast_detect_fstring_sql_injection(self, analyzer):
+        """AST detects f-string passed directly to cursor.execute()."""
+        symbols = [
+            {
+                "name": "get_user",
+                "file_path": "db.py",
+                "line": 10,
+                "source_code": (
+                    'cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")\n'
+                ),
+            }
+        ]
+        issues = analyzer.analyze_security(symbols)
+        sql_issues = [i for i in issues if i.category == "sql_injection"]
+        assert len(sql_issues) >= 1
+        # AST layer provides a descriptive message about f-string
+        assert any("f-string" in i.description for i in sql_issues)
+
+    def test_ast_detect_concat_sql_injection(self, analyzer):
+        """AST detects string concatenation in cursor.execute()."""
+        symbols = [
+            {
+                "name": "search",
+                "file_path": "db.py",
+                "line": 5,
+                "source_code": (
+                    'cursor.execute("SELECT * FROM items WHERE name = \'" + user_input + "\'")\n'
+                ),
+            }
+        ]
+        issues = analyzer.analyze_security(symbols)
+        sql_issues = [i for i in issues if i.category == "sql_injection"]
+        assert len(sql_issues) >= 1
+        # AST layer should provide a more descriptive message
+        assert any("concatenation" in i.description for i in sql_issues) or \
+               any("sql injection" in i.description.lower() for i in sql_issues)
+
+    def test_ast_detect_format_sql_injection(self, analyzer):
+        """AST detects .format() in cursor.execute()."""
+        symbols = [
+            {
+                "name": "lookup",
+                "file_path": "db.py",
+                "line": 3,
+                "source_code": (
+                    'cursor.execute("SELECT * FROM users WHERE id = {}".format(user_input))\n'
+                ),
+            }
+        ]
+        issues = analyzer.analyze_security(symbols)
+        sql_issues = [i for i in issues if i.category == "sql_injection"]
+        assert len(sql_issues) >= 1
+
+    def test_ast_no_false_positive_on_static_query(self, analyzer):
+        """AST does NOT flag static (safe) queries with parameter placeholders."""
+        symbols = [
+            {
+                "name": "safe_query",
+                "file_path": "db.py",
+                "line": 1,
+                "source_code": (
+                    'cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))\n'
+                ),
+            }
+        ]
+        issues = analyzer.analyze_security(symbols)
+        sql_issues = [i for i in issues if i.category == "sql_injection"]
+        assert len(sql_issues) == 0
+
+    def test_ast_detect_fstring_in_subprocess(self, analyzer):
+        """AST detects f-string passed to subprocess.run()."""
+        symbols = [
+            {
+                "name": "run_cmd",
+                "file_path": "ops.py",
+                "line": 1,
+                "source_code": (
+                    "import subprocess\n"
+                    'subprocess.run(f"ls {user_dir}", shell=True)\n'
+                ),
+            }
+        ]
+        issues = analyzer.analyze_security(symbols)
+        cmd_issues = [i for i in issues if i.category == "command_injection"]
+        assert len(cmd_issues) >= 1
