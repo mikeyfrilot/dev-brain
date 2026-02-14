@@ -1,13 +1,22 @@
-# 🧠 Dev Brain — AI-Powered Code Intelligence via MCP
+<p align="center">
+  <img src="assets/brain-dev-logo.jpg" alt="brain-dev logo" width="480" />
+</p>
 
-[![PyPI version](https://badge.fury.io/py/brain-dev.svg)](https://pypi.org/project/brain-dev/)
-[![Tests](https://github.com/mcp-tool-shop-org/brain-dev/actions/workflows/test.yml/badge.svg)](https://github.com/mcp-tool-shop-org/brain-dev/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/mcp-tool-shop-org/brain-dev/branch/main/graph/badge.svg)](https://codecov.io/gh/mcp-tool-shop-org/brain-dev)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io/)
+<h1 align="center">Dev Brain — AI-Powered Code Intelligence via MCP</h1>
 
-> **Transform any AI assistant into a code analysis powerhouse.** Dev Brain is an MCP server that gives LLMs the ability to analyze test coverage, generate pytest tests from AST, detect security vulnerabilities, and suggest refactoring improvements — works with Claude, Cursor, Windsurf, and any MCP-compatible client.
+<p align="center">
+  <a href="https://pypi.org/project/brain-dev/"><img src="https://badge.fury.io/py/brain-dev.svg" alt="PyPI version" /></a>
+  <a href="https://github.com/mcp-tool-shop-org/brain-dev/actions/workflows/test.yml"><img src="https://github.com/mcp-tool-shop-org/brain-dev/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
+  <a href="https://codecov.io/gh/mcp-tool-shop-org/brain-dev"><img src="https://codecov.io/gh/mcp-tool-shop-org/brain-dev/branch/main/graph/badge.svg" alt="codecov" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-Compatible-purple.svg" alt="MCP" /></a>
+</p>
+
+<p align="center">
+  <strong>Transform any AI assistant into a code analysis powerhouse.</strong><br />
+  Dev Brain is an MCP server that gives LLMs the ability to analyze test coverage, generate pytest tests from AST, detect security vulnerabilities, and suggest refactoring improvements — works with Claude, Cursor, Windsurf, and any MCP-compatible client.
+</p>
 
 <p align="center">
   <a href="#-why-brain-dev">Why Dev Brain?</a> •
