@@ -588,3 +588,38 @@ def process(
         result = generate_tests_for_file(str(test_file))
 
         assert "def test_process" in result
+
+    def test_optional_return_assertion_not_tautological(self, tmp_path):
+        """Regression: generated tests for Optional[T] returns must contain
+        a real isinstance check, not the tautology 'result is None or result is not None'.
+        """
+        test_file = tmp_path / "opt_return.py"
+        test_file.write_text('''
+from typing import Optional
+
+def find_user(user_id: str) -> Optional[int]:
+    """Look up a user by ID."""
+    return 42
+''')
+
+        result = generate_tests_for_file(str(test_file))
+
+        # Must NOT contain the tautology
+        assert "result is None or result is not None" not in result
+        # Must contain a meaningful isinstance check
+        assert "isinstance(result, int)" in result
+
+    def test_optional_return_assertion_for_str(self, tmp_path):
+        """Regression: Optional[str] should get isinstance(result, str)."""
+        test_file = tmp_path / "opt_str.py"
+        test_file.write_text('''
+from typing import Optional
+
+def get_name(key: str) -> Optional[str]:
+    return "hello"
+''')
+
+        result = generate_tests_for_file(str(test_file))
+
+        assert "isinstance(result, str)" in result
+        assert "result is None or result is not None" not in result

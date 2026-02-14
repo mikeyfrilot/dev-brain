@@ -832,20 +832,32 @@ async def {test_name}():
 
         param = optional_params[0]
 
+        # Build a meaningful assertion for the return type
+        ret = func.return_annotation or ""
+        assertion = "assert result is not None or result is None  # TODO: add type check"
+        if "Optional" in ret:
+            inner = self._extract_optional_inner(ret)
+            if inner:
+                runtime_type = self._OPTIONAL_INNER_TYPES.get(inner)
+                if runtime_type:
+                    assertion = f"assert result is None or isinstance(result, {runtime_type})"
+        elif ret and ret in self._ASSERTION_MAP:
+            assertion = self._ASSERTION_MAP[ret]
+
         if func.is_async:
             return f'''
 @pytest.mark.asyncio
 async def {test_name}():
     """Test {func.name} with None value."""
     result = await {func.name}({param.name}=None)
-    assert result is not None or result is None  # Adjust based on expected behavior
+    {assertion}
 '''
         else:
             return f'''
 def {test_name}():
     """Test {func.name} with None value."""
     result = {func.name}({param.name}=None)
-    assert result is not None or result is None  # Adjust based on expected behavior
+    {assertion}
 '''
 
     def _generate_error_test(self, func: FunctionInfo) -> str:
@@ -918,6 +930,31 @@ def {test_name}():
         "float": "assert isinstance(result, (int, float))",
     }
 
+    # Maps type name strings to their runtime type expression for isinstance checks
+    _OPTIONAL_INNER_TYPES: dict[str, str] = {
+        "int": "int",
+        "str": "str",
+        "float": "(int, float)",
+        "bool": "bool",
+        "list": "list",
+        "dict": "dict",
+        "tuple": "tuple",
+        "set": "set",
+        "bytes": "bytes",
+    }
+
+    @staticmethod
+    def _extract_optional_inner(ret: str) -> Optional[str]:
+        """Extract the inner type T from 'Optional[T]' annotations.
+
+        Returns the inner type string, or None if not parseable.
+        """
+        # Match Optional[T] where T is the inner type
+        m = re.match(r"Optional\[(.+)\]$", ret)
+        if m:
+            return m.group(1).strip()
+        return None
+
     def _get_assertion(self, func: FunctionInfo, indent: int = 4) -> str:
         """Generate appropriate assertion based on return type."""
         ind = " " * indent
@@ -933,7 +970,13 @@ def {test_name}():
         if "dict" in ret.lower():
             return f"{ind}assert isinstance(result, dict)"
         if "Optional" in ret:
-            return f"{ind}assert result is None or result is not None"
+            inner = self._extract_optional_inner(ret)
+            if inner:
+                # Look up the runtime type for a proper isinstance check
+                runtime_type = self._OPTIONAL_INNER_TYPES.get(inner)
+                if runtime_type:
+                    return f"{ind}assert result is None or isinstance(result, {runtime_type})"
+            return f"{ind}assert result is None or result is not None  # TODO: add type check"
 
         return f"{ind}assert result is not None"
 
